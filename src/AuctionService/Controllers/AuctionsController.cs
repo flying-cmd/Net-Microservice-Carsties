@@ -2,6 +2,7 @@ using AuctionService.Data;
 using AuctionService.DTOs;
 using AuctionService.Entities;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,14 +25,25 @@ public class AuctionsController : ControllerBase
     // A concrete object of type T (e.g., AuctionDto) -> returned as 200 OK with JSON.
     // A special response like NotFound(), BadRequest(), Ok(), etc.
     [HttpGet]
-    public async Task<ActionResult<List<AuctionDto>>> GetAuctions()
+    public async Task<ActionResult<List<AuctionDto>>> GetAllAuctions(string date)
     {
-        var auctions = await _context.Auctions
-            .Include(a => a.Item)
-            .OrderBy(a => a.Item.Make)
-            .ToListAsync();
+        var query = _context.Auctions.OrderBy(x => x.Item.Make).AsQueryable();
 
-        return _mapper.Map<List<AuctionDto>>(auctions);
+        if (!string.IsNullOrEmpty(date))
+        {
+            query = query.Where(x => x.UpdatedAt.CompareTo(DateTime.Parse(date).ToUniversalTime()) > 0);
+        }
+
+        // var auctions = await _context.Auctions
+        //     .Include(a => a.Item)
+        //     .OrderBy(a => a.Item.Make)
+        //     .ToListAsync();
+
+        // return _mapper.Map<List<AuctionDto>>(auctions);
+
+        // AutoMapper generates SQL that directly selects only the fields needed for AuctionDto
+
+        return await query.ProjectTo<AuctionDto>(_mapper.ConfigurationProvider).ToListAsync();
     }
 
     [HttpGet("{id}")] // api/auctions/{id}
