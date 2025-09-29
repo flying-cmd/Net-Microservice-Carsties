@@ -1,4 +1,6 @@
+using AuctionService.Consumers;
 using AuctionService.Data;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +13,44 @@ builder.Services.AddDbContext<AuctionContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+builder.Services.AddMassTransit(x =>
+{
+    // outbox to solve inconsistent data
+    // outbox solves:
+    //  Events are first saved in the same database transaction as your domain changes.
+    //  A background process later reads the outbox table and publishes the events reliably.
+    //  Guarantees atomicity between DB writes and message publishing.
+    // AddEntityFrameworkOutbox<AuctionContext>: Configures MassTransit to use the Entity Framework Outbox with AuctionContext (EF Core DbContext)
+    x.AddEntityFrameworkOutbox<AuctionContext>(o =>
+    {
+        // Controls how often the outbox processor polls the database for new messages. If there are new messages in the outbox, it publishes them. If not, it just waits another 10 seconds before checking again.
+        // every 10 seconds, it checks for pending events to publish
+        o.QueryDelay = TimeSpan.FromSeconds(10);
+
+        // Configures the outbox to use PostgreSQL
+        o.UsePostgres();
+
+        // Enables the Bus Outbox
+        // This prevents duplicate messages or messages published without DB commit.
+        o.UseBusOutbox();
+    });
+
+    // scans the namespace where AuctionCreatedFaultConsumer lives and automatically registers all consumers in that namespace into the ASP.NET Core DI container
+    x.AddConsumersFromNamespaceContaining<AuctionCreatedFaultConsumer>();
+
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("auction", false));
+
+    // Use RabbitMQ as the transport layer
+    // 'context' gives access to the current DI scope (so you can resolve configs, logging, etc.)
+    // 'cfg' is the RabbitMQ configuration builder, where you specify how MassTransit should behave
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        // a helper method that tells MassTransit:
+        // Automatically create and configure receive endpoints for any consumers, sagas, 
+        // or activities that you’ve registered in the DI container
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 var app = builder.Build();
 
