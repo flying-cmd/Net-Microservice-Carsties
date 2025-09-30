@@ -14,6 +14,7 @@ public class MappingProfiles : Profile
         CreateMap<Auction, AuctionDto>().IncludeMembers(x => x.Item);
         CreateMap<Item, AuctionDto>();
 
+        // Maps CreateAuctionDto to Auction
         // d => d.Item -> Destination member = Auction.Item (the navigation property that holds the item details)
         // o => o.MapFrom(...) -> Configures where AutoMapper should get the value from
         // s => s -> Source is the entire CreateAuctionDto object
@@ -24,5 +25,14 @@ public class MappingProfiles : Profile
 
         // Maps AuctionDto to AuctionCreated
         CreateMap<AuctionDto, AuctionCreated>();
+
+        // IncludeMembers(x => x.Item): When mapping from Auction → AuctionUpdated, also look at the properties of Auction.Item as if they were properties of Auction itself.
+        CreateMap<Auction, AuctionUpdated>().IncludeMembers(x => x.Item);
+        // When use .IncludeMembers(), you also need to tell AutoMapper how to map from Item → AuctionUpdated
+        CreateMap<Item, AuctionUpdated>();
+
+        // CreateMap<UpdateAuctionDto, AuctionUpdated>();
+
+        // CreateMap<Auction, AuctionDeleted>();
     }
 }

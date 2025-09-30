@@ -26,6 +26,10 @@ builder.Services.AddMassTransit(x =>
     // Scan the namespace where AuctionCreatedConsumer is defined (that is SearchService.Consumers), and automatically register all consumers in that namespace into the DI container.
     x.AddConsumersFromNamespaceContaining<AuctionCreatedConsumer>();
 
+    x.AddConsumersFromNamespaceContaining<AuctionUpdatedConsumer>();
+
+    x.AddConsumersFromNamespaceContaining<AuctionDeletedConsumer>();
+
     // Endpoint name formatter controls how MassTransit names the RabbitMQ queues/exchanges for each consumer
     // KebabCaseEndpointNameFormatter formats names in kebab-case (lowercase, words separated by -)
     // "search" → a prefix for all endpoints created by this service, like "search-auction-created"

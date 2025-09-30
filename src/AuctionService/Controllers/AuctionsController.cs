@@ -14,6 +14,10 @@ namespace AuctionService.Controllers;
 [Route("api/auctions")]
 public class AuctionsController : ControllerBase
 {
+    // AuctionContext is Entity Framework Core DbContext
+    // It acts as a bridge between your C# classes and your PostgreSQL database
+    // DbSet<Auction> Auctions represents the Auctions table.
+    // When you call _context.Auctions, you’re querying or modifying that table.
     private readonly AuctionContext _context;
     private readonly IMapper _mapper;
     // An IPublishEndpoint lets you publish events (messages) into the message bus, so other services can listen and react to them
@@ -164,6 +168,8 @@ public class AuctionsController : ControllerBase
         auction.Item.Mileage = updateAuctionDto.Mileage ?? auction.Item.Mileage;
         auction.Item.Year = updateAuctionDto.Year ?? auction.Item.Year;
 
+        await _publishEndpoint.Publish(_mapper.Map<AuctionUpdated>(auction));
+
         var result = await _context.SaveChangesAsync() > 0;
 
         if (!result)
@@ -185,6 +191,9 @@ public class AuctionsController : ControllerBase
         }
 
         _context.Auctions.Remove(auction);
+
+        // await _publishEndpoint.Publish(_mapper.Map<AuctionDeleted>(auction));
+        await _publishEndpoint.Publish<AuctionDeleted>(new { Id = auction.Id.ToString() });
 
         var result = await _context.SaveChangesAsync() > 0;
 
