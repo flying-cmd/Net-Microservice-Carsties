@@ -49,6 +49,31 @@ public static class Config
                 // ResourceOwnerPassword = Resource Owner Password Credentials flow
                 // The client directly sends username + password to IdentityServer
                 AllowedGrantTypes = {GrantType.ResourceOwnerPassword},
+            },
+            new Client
+            {
+                // unique ID for the client application, used by the client when requesting tokens
+                ClientId = "nextapp",
+                ClientName = "nextapp", // a human-readable name
+                ClientSecrets = {new Secret("secret".Sha256())},
+                // Grant types are the OAuth2 flows the client is allowed to use:
+                //    - GrantTypes.Code → Authorization Code flow (secure, recommended for SPAs).
+                //        - User logs in → gets an authorization code → exchanges it for tokens.
+                //    - GrantTypes.ClientCredentials → Client Credentials flow (no user, just app identity).
+                //        - Useful for background jobs or APIs talking to APIs.
+                // So this client can do both:
+                // Act as a logged-in user (code flow).
+                // Or act as a system client (client credentials).
+                AllowedGrantTypes = GrantTypes.CodeAndClientCredentials,
+                // PKCE (Proof Key for Code Exchange) is an extra security layer for code flow, mainly for public clients like SPAs or mobile apps.
+                RequirePkce = false,
+                // Defines where IdentityServer will send the user after login.
+                RedirectUris = {"http://localhost:3000/api/auth/callback/id-server"},
+                // This means the client can receive a refresh token.
+                // Refresh tokens let the client silently renew access tokens without forcing the user to log in again.
+                AllowOfflineAccess = true,
+                AllowedScopes = {"openid", "profile", "auctionApp"},
+                AccessTokenLifetime = 3600*24*30,
             }
         };
 }
