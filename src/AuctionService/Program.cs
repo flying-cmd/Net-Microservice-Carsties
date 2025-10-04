@@ -46,6 +46,13 @@ builder.Services.AddMassTransit(x =>
     // 'cfg' is the RabbitMQ configuration builder, where you specify how MassTransit should behave
     x.UsingRabbitMq((context, cfg) =>
     {
+        // configures the connection to the RabbitMQ broker
+        cfg.Host(builder.Configuration["RabbitMq:Host"], "/", h =>
+        {
+            h.Username(builder.Configuration.GetValue("RabbitMq:Username", "guest"));
+            h.Password(builder.Configuration.GetValue("RabbitMq:Password", "guest"));
+        });
+
         // a helper method that tells MassTransit:
         // Automatically create and configure receive endpoints for any consumers, sagas, 
         // or activities that you’ve registered in the DI container

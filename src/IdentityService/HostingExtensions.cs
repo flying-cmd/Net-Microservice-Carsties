@@ -66,6 +66,15 @@ internal static class HostingExtensions
                 options.Events.RaiseFailureEvents = true;
                 options.Events.RaiseSuccessEvents = true;
 
+                // If I’m running in the Docker environment, force IdentityServer to use http://localhost:5001 as its issuer URI so clients validate tokens correctly.
+                // Without this, IdentityServer might think its issuer is something internal like: http://identity-svc:80 (inside the Docker)
+                // But your clients (e.g., AuctionService, browser apps) expect tokens with: iss = "http://localhost:5001"
+                // By setting IssuerUri, you make sure the tokens use the correct, publicly accessible issuer.
+                if (builder.Environment.IsEnvironment("Docker"))
+                {
+                    options.IssuerUri = "http://localhost:5001";
+                }
+
                 // Use a large chunk size for diagnostic data in development where it will be redirected to a local file.
                 if (builder.Environment.IsDevelopment())
                 {

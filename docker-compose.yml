@@ -1,3 +1,5 @@
+# Each container is isolated, with its own network namespace.
+# That means port 80 in auction-svc is completely separate from port 80 in search-svc
 services:
   postgres:
     image: postgres
@@ -7,6 +9,13 @@ services:
       - 5432:5432
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # If the command exits with code 0 → Healthy
+    # If the command exits with non-zero (1, 2, …) → Unhealthy
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U postgres"]
+        interval: 5s
+        timeout: 5s
+        retries: 3
   mongodb:
     image: mongo
     environment:
@@ -16,11 +25,110 @@ services:
       - 27017:27017
     volumes:
       - mongodata:/data/db
+    healthcheck:
+        test:
+            [
+                "CMD",
+                "mongosh",
+                "--quiet",
+                "127.0.0.1/test",
+                "--eval",
+                "'quit(db.runCommand({ ping: 1 }).ok ? 0 : 2)'",
+            ]
+        interval: 10s
+        timeout: 10s
+        retries: 5
+        start_period: 40s
   rabitmq:
     image: rabbitmq:3-management-alpine
     ports:
       - 5672:5672
       - 15672:15672
+    healthcheck:
+        test: rabbitmq-diagnostics check_port_connectivity
+        interval: 5s
+        timeout: 5s
+        retries: 3
+  auction-svc:
+    image: flying181/auction-svc:latest
+    build:
+      # The build context is the current folder
+      context: .
+      dockerfile: src/AuctionService/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - RabbitMq__Host=rabitmq
+      - ConnectionStrings__DefaultConnection=Server=postgres;Database=postgres;User Id=postgres;Password=postgrespw;Database=auctions
+      - IdentityServiceUrl=http://identity-svc
+    ports:
+      # Maps container port 80 → host port 7001
+      - 7001:80
+    depends_on:
+      # Ensures postgres and rabitmq containers are started before AuctionService
+      postgres:
+        condition: service_healthy
+      rabitmq:
+        condition: service_healthy
+  search-svc:
+    image: flying181/search-svc:latest
+    build:
+      # The build context is the current folder
+      context: .
+      dockerfile: src/SearchService/Dockerfile
+    # For ConnectionStrings__MongoDbConnection, why not use mongodb://root:mongopw@localhost:
+    # it would look for MongoDB inside the same container (SearchService’s container), which is wrong
+    # mongodb = the MongoDB container (correct).
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - RabbitMq__Host=rabitmq
+      - ConnectionStrings__MongoDbConnection=mongodb://root:mongopw@mongodb
+      - AuctionServiceUrl=http://auction-svc
+    ports:
+      # Maps container port 80 → host port 7002
+      - 7002:80
+    depends_on:
+      # Ensures postgres and rabitmq containers are started before AuctionService
+      mongodb:
+        condition: service_healthy
+      rabitmq:
+        condition: service_healthy
+  identity-svc:
+    image: flying181/identity-svc:latest
+    build:
+      # The build context is the current folder
+      context: .
+      dockerfile: src/IdentityService/Dockerfile
+    # For ConnectionStrings__MongoDbConnection, why not use mongodb://root:mongopw@localhost:
+    # it would look for MongoDB inside the same container (SearchService’s container), which is wrong
+    # mongodb = the MongoDB container (correct).
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Server=postgres;Database=postgres;User Id=postgres;Password=postgrespw;Database=identity
+    ports:
+      # Maps container port 80 → host port 5001
+      - 5001:80
+    depends_on:
+      # Ensures postgres and rabitmq containers are started before AuctionService
+      postgres:
+        condition: service_healthy
+  gateway-svc:
+    image: flying181/gateway-svc:latest
+    build:
+      # The build context is the current folder
+      context: .
+      dockerfile: src/GatewayService/Dockerfile
+    # For ConnectionStrings__MongoDbConnection, why not use mongodb://root:mongopw@localhost:
+    # it would look for MongoDB inside the same container (SearchService’s container), which is wrong
+    # mongodb = the MongoDB container (correct).
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      # Maps container port 80 → host port 5001
+      - 6001:80
 volumes:
   pgdata:
   mongodata:

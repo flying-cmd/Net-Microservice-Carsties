@@ -41,6 +41,13 @@ builder.Services.AddMassTransit(x =>
     // 'cfg' is the RabbitMQ configuration builder, where you specify how MassTransit should behave
     x.UsingRabbitMq((context, cfg) =>
     {
+        // configures the connection to the RabbitMQ broker
+        cfg.Host(builder.Configuration["RabbitMq:Host"], "/", h =>
+        {
+            h.Username(builder.Configuration.GetValue("RabbitMq:Username", "guest"));
+            h.Password(builder.Configuration.GetValue("RabbitMq:Password", "guest"));
+        });
+
         // Create a receive endpoint (queue) named search-auction-created in RabbitMQ, and configure how messages arriving at that queue should be handled.
         cfg.ReceiveEndpoint("search-auction-created", e =>
         {
