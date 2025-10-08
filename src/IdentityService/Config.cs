@@ -53,8 +53,8 @@ public static class Config
             new Client
             {
                 // unique ID for the client application, used by the client when requesting tokens
-                ClientId = "nextapp",
-                ClientName = "nextapp", // a human-readable name
+                ClientId = "nextApp",
+                ClientName = "nextApp", // a human-readable name
                 ClientSecrets = {new Secret("secret".Sha256())},
                 // Grant types are the OAuth2 flows the client is allowed to use:
                 //    - GrantTypes.Code → Authorization Code flow (secure, recommended for SPAs).
@@ -74,6 +74,7 @@ public static class Config
                 AllowOfflineAccess = true,
                 AllowedScopes = {"openid", "profile", "auctionApp"},
                 AccessTokenLifetime = 3600*24*30,
+                AlwaysIncludeUserClaimsInIdToken = true
             }
         };
 }
