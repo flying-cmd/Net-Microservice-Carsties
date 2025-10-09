@@ -2,7 +2,6 @@
 
 import { Button, Spinner } from "flowbite-react";
 import { updateAuctionTest } from "../actions/auctionActions";
-import { error } from "console";
 import { useState } from "react";
 
 export default function AuthTest() {

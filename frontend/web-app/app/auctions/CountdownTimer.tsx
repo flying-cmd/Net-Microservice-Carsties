@@ -1,3 +1,5 @@
+"use client";
+
 import Countdown, { zeroPad } from "react-countdown";
 
 // Renderer callback with condition
