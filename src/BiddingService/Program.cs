@@ -1,0 +1,88 @@
+using BiddingService.Consumers;
+using BiddingService.Services;
+using MassTransit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using MongoDB.Driver;
+using MongoDB.Entities;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+
+builder.Services.AddControllers();
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumersFromNamespaceContaining<AuctionCreatedConsumer>();
+
+    x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("bids", false));
+
+    // Use RabbitMQ as the transport layer
+    // 'context' gives access to the current DI scope (so you can resolve configs, logging, etc.)
+    // 'cfg' is the RabbitMQ configuration builder, where you specify how MassTransit should behave
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        // configures the connection to the RabbitMQ broker
+        cfg.Host(builder.Configuration["RabbitMq:Host"], "/", h =>
+        {
+            h.Username(builder.Configuration.GetValue("RabbitMq:Username", "guest"));
+            h.Password(builder.Configuration.GetValue("RabbitMq:Password", "guest"));
+        });
+
+        // a helper method that tells MassTransit:
+        // Automatically create and configure receive endpoints for any consumers, sagas, 
+        // or activities that you’ve registered in the DI container
+        cfg.ConfigureEndpoints(context);
+    });
+});
+
+// Registers authentication services
+// JwtBearerDefaults.AuthenticationScheme = "Bearer"
+// uses JWT bearer authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    // Adds JWT bearer handler with configuration options
+    .AddJwtBearer(options =>
+    {
+        // Authority = the base URL of your IdentityServer
+        // Used for:
+        //     - Validating the token’s iss(issuer) claim.
+        //     - Fetching public signing keys(via the OIDC discovery endpoint: /.well - known / openid - configuration).
+        // By pointing here, your API knows where valid tokens must come from.
+        options.Authority = builder.Configuration["IdentityServiceUrl"];
+        // Setting this to false lets you use HTTP during development.
+        options.RequireHttpsMetadata = false;
+        // Disables audience validation
+        // Normally, the token must have an 'aud' (audience) claim that matches your API's identifier.
+        // Setting false means your API doesn’t care which 'aud' is in the token — it only checks the issuer and signature.
+        options.TokenValidationParameters.ValidateAudience = false;
+        // Tells ASP.NET Core which claim to treat as the user’s User.Identity.Name
+        options.TokenValidationParameters.NameClaimType = "username";
+    });
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+// It registers CheckAuctionFinished background service to run automatically when the application starts.
+// In ASP.NET Core, AddHostedService<T>() is used to register a class that inherits from BackgroundService or implements IHostedService.
+builder.Services.AddHostedService<CheckAuctionFinished>();
+// Workflow:
+/*
+When you start your application (via app.Run()):
+1. ASP.NET Core builds the dependency injection container.
+2. It detects all hosted services registered via AddHostedService.
+3. It starts each of them in the background thread pool.
+4. When the app stops, it calls StopAsync() on each service — passing in the stoppingToken.
+*/
+
+builder.Services.AddScoped<GrpcAuctionClient>();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+await DB.InitAsync("BidDb", MongoClientSettings.FromConnectionString(builder.Configuration.GetConnectionString("BidDbConnection")));
+
+app.Run();

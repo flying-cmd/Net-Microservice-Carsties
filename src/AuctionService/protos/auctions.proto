@@ -1,0 +1,43 @@
+// declares that the file uses Protocol Buffers version 3 syntax
+// Proto3 defines how data is structured and serialized for communication
+syntax = "proto3";
+
+// Sets the C# namespace for generated C# classes from this .proto file.
+// When you compile this file with the gRPC C# tooling, it will generate:
+// - Request/response model classes (GetAuctionRequest, GrpcAuctionResponse, etc.)
+// - A C# service base class GrpcAuction.GrpcAuctionBase
+option csharp_namespace = "AuctionService";
+
+// defines a gRPC service called GrpcAuction
+// rpc = remote procedure call
+// Method name = GetAuction
+// Input = GetAuctionRequest message
+// Output = GrpcAuctionResponse message
+service GrpcAuction {
+    rpc GetAuction (GetAuctionRequest) returns (GrpcAuctionResponse);
+}
+
+// defines the request message (input) for GetAuction
+// 'message' defines a structured data type
+// string id = 1:
+//    - Field name: id
+//    - Field type: string
+//    - Field number: 1 (each field must have a unique integer tag; it’s used for binary encoding order)
+message GetAuctionRequest {
+    string id = 1;
+}
+
+// defines the data structure representing an auction in gRPC format
+// It’s similar to a DTO but specifically for gRPC communication
+message GrpcAuctionModel {
+    string id = 1;
+    string seller = 2;
+    string auctionEnd = 3;
+    int32 reservePrice = 4;
+}
+
+// Defines the response from GetAuction
+// It wraps a single field: auction, of type GrpcAuctionModel
+message GrpcAuctionResponse {
+    GrpcAuctionModel auction = 1;
+}

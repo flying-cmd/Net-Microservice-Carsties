@@ -58,12 +58,18 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_URLS=http://+:7777
       - RabbitMq__Host=rabitmq
       - ConnectionStrings__DefaultConnection=Server=postgres;Database=postgres;User Id=postgres;Password=postgrespw;Database=auctions
       - IdentityServiceUrl=http://identity-svc
+      - Kestrel__Endpoints__Grpc__Protocols=Http2
+      - Kestrel__Endpoints__Grpc__Url=http://+:7777
+      - Kestrel__Endpoints__WebApi__Protocols=Http1
+      - Kestrel__Endpoints__WebApi__Url=Http://+:80
     ports:
       # Maps container port 80 → host port 7001
       - 7001:80
+      - 7777:7777
     depends_on:
       # Ensures postgres and rabitmq containers are started before AuctionService
       postgres:
@@ -129,6 +135,31 @@ services:
     ports:
       # Maps container port 80 → host port 5001
       - 6001:80
+  bid-svc:
+    image: flying181/bid-svc:latest
+    build:
+      # The build context is the current folder
+      context: .
+      dockerfile: src/BiddingService/Dockerfile
+    # For ConnectionStrings__MongoDbConnection, why not use mongodb://root:mongopw@localhost:
+    # it would look for MongoDB inside the same container (SearchService’s container), which is wrong
+    # mongodb = the MongoDB container (correct).
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - RabbitMq__Host=rabitmq
+      - ConnectionStrings__BidDbConnection=mongodb://root:mongopw@mongodb
+      - IdentityServiceUrl=http://identity-svc
+      - GrpcAuction=http://auction-svc:7777
+    ports:
+      # Maps container port 80 → host port 7002
+      - 7003:80
+    depends_on:
+      # Ensures postgres and rabitmq containers are started before AuctionService
+      mongodb:
+        condition: service_healthy
+      rabitmq:
+        condition: service_healthy
 volumes:
   pgdata:
   mongodata:
