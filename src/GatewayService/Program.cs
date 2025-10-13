@@ -28,7 +28,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters.NameClaimType = "username";
     });
 
+// Adds CORS support to the ASP.NET Core Dependency Injection container
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("customPolicy", b =>
+    {
+        // Note: When you use AllowCredentials(), you cannot combine it with AllowAnyOrigin(). You must specify explicit origins with .WithOrigins()
+        b.AllowAnyHeader() // Allows any HTTP headers in the request
+            .AllowAnyMethod() // Allows any HTTP method in the request
+            .AllowCredentials() // Allows cookies, authorization headers, or client certificates to be sent from the frontend
+            .WithOrigins(builder.Configuration["ClientApp"]); // Restricts allowed origins (frontend URLs) to only the value specified in your app configuration
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors();
 
 app.MapReverseProxy();
 

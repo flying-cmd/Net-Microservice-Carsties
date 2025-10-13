@@ -160,6 +160,26 @@ services:
         condition: service_healthy
       rabitmq:
         condition: service_healthy
+  notify-svc:
+    image: flying181/notify-svc:latest
+    build:
+      # The build context is the current folder
+      context: .
+      dockerfile: src/NotificationService/Dockerfile
+    # For ConnectionStrings__MongoDbConnection, why not use mongodb://root:mongopw@localhost:
+    # it would look for MongoDB inside the same container (SearchService’s container), which is wrong
+    # mongodb = the MongoDB container (correct).
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - RabbitMq__Host=rabitmq
+    ports:
+      # Maps container port 80 → host port 7002
+      - 7004:80
+    depends_on:
+      # Ensures postgres and rabitmq containers are started before NotificationService
+      rabitmq:
+        condition: service_healthy
 volumes:
   pgdata:
   mongodata:
