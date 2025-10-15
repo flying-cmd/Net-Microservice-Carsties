@@ -112,10 +112,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:80
+      - IssuerUri=http://id.carsties.local
+      - ClientApp=http://app.carsties.local
       - ConnectionStrings__DefaultConnection=Server=postgres;Database=postgres;User Id=postgres;Password=postgrespw;Database=identity
-    ports:
-      # Maps container port 80 → host port 5001
-      - 5001:80
+      - VIRTUAL_HOST=id.carsties.local
+    # ports:
+    #   # Maps container port 80 → host port 5001
+    #   - 5001:80
     depends_on:
       # Ensures postgres and rabitmq containers are started before AuctionService
       postgres:
@@ -132,6 +135,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Docker
       - ASPNETCORE_URLS=http://+:80
+      - ClientApp=http://app.carsties.local
+      - VIRTUAL_HOST=api.carsties.local
     ports:
       # Maps container port 80 → host port 5001
       - 6001:80
@@ -180,6 +185,32 @@ services:
       # Ensures postgres and rabitmq containers are started before NotificationService
       rabitmq:
         condition: service_healthy
+  web-app:
+    image: flying181/web-app:latest
+    build:
+      context: .
+      dockerfile: frontend/web-app/Dockerfile
+    volumes:
+      - /var/lib/web/data
+    ports:
+      - 3000:3000
+    environment:
+      - AUTH_SECRET="d0vXuMMpmioZlIZp2Quor1rLtQT3/TrRMyOgxytd49Y="
+      - API_URL=http://gateway-svc/
+      - ID_URL=http://id.carsties.local
+      - ID_URL_INTERNAL=http://identity-svc
+      - AUTH_URL=http://app.carsties.local
+      - AUTH_URL_INTERNAL=http://web-app:3000
+      - AUTH_TRUST_HOST=true
+      - VIRTUAL_HOST=app.carsties.local
+      - VIRTUAL_PORT=3000
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
 volumes:
   pgdata:
   mongodata:

@@ -4,20 +4,22 @@ import { useAuctionStore } from "@/hooks/useAuctionStore";
 import { useBidStore } from "@/hooks/useBidStore";
 import { Auction, AuctionFinished, Bid } from "@/types";
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
-import { User } from "next-auth";
 import { useParams } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import AuctionCreatedToast from "../components/AuctionCreatedToast";
 import { getDetaildViewData } from "../actions/auctionActions";
 import AuctionFinishedToast from "../components/AuctionFinishedToast";
+import { useSession } from "next-auth/react";
 
 type Props = {
   children: ReactNode;
-  user: User | null;
 };
 
-export default function SIgnalRProvider({ children, user }: Props) {
+export default function SIgnalRProvider({ children }: Props) {
+  const session = useSession();
+  const user = session.data?.user;
+
   // useRef holds a mutable value that persists across re-renders
   // it stores your SignalR connection instance
   // With useRef, the object remains stable and isn’t recreated
@@ -76,7 +78,7 @@ export default function SIgnalRProvider({ children, user }: Props) {
         });
       }
     },
-    [user?.username]
+    [user]
   );
 
   // useCallback(...) memoizes the function so React doesn’t recreate it on every render (important for event subscription stability)
@@ -98,7 +100,7 @@ export default function SIgnalRProvider({ children, user }: Props) {
   useEffect(() => {
     if (!connection.current) {
       connection.current = new HubConnectionBuilder() // Uses builder pattern to create a new SignalR connection
-        .withUrl("http://localhost:6001/notifications") // 6001 is the port of Gateway
+        .withUrl(process.env.NEXT_PUBLIC_NOTIFY_URL!) // 6001 is the port of Gateway
         .withAutomaticReconnect() // Enables automatic reconnection if the connection drops (e.g., network failure).
         .build(); // Finalizes the setup and returns a HubConnection object
 

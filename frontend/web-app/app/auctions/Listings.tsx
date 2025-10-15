@@ -51,8 +51,6 @@ export default function Listings() {
 
   // useEffect() callback cannot be async
   useEffect(() => {
-    console.log(url);
-
     getData(url).then((data) => {
       setData(data);
       setLoading(false);

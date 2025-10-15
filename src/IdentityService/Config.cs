@@ -20,7 +20,7 @@ public static class Config
             new ApiScope("auctionApp", "Auction app full access"),
         };
 
-    public static IEnumerable<Client> Clients =>
+    public static IEnumerable<Client> Clients(IConfiguration config) =>
         new Client[]
         {
             new Client
@@ -68,7 +68,7 @@ public static class Config
                 // PKCE (Proof Key for Code Exchange) is an extra security layer for code flow, mainly for public clients like SPAs or mobile apps.
                 RequirePkce = false,
                 // Defines where IdentityServer will send the user after login.
-                RedirectUris = {"http://localhost:3000/api/auth/callback/id-server"},
+                RedirectUris = {config["ClientApp"] + "/api/auth/callback/id-server"},
                 // This means the client can receive a refresh token.
                 // Refresh tokens let the client silently renew access tokens without forcing the user to log in again.
                 AllowOfflineAccess = true,

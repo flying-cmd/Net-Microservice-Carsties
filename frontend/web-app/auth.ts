@@ -4,7 +4,7 @@ import DuendeIDS6Provider from "next-auth/providers/duende-identity-server6"
 
 // handlers – automatically create GET/POST routes for /api/auth/[...nextauth]
 // signIn / signOut – functions you can call inside your React components
-// auth – server-side helper to check the current session in Server Components or API routes
+// auth – server-side helper to check the current session in Server Components or API routes, it can also be used as middleware (export { auth as middleware } from "@/auth";)
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     DuendeIDS6Provider({
@@ -17,9 +17,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Acts like a password proving that this client is allowed to request tokens.
         clientSecret: "secret",
         // The base URL of your IdentityServer
-        issuer: "http://localhost:5001",
-        // Defines what scopes to request when authenticating.
-        authorization: { params: { scope: "openid profile auctionApp" } },
+        issuer: process.env.ID_URL,
+        // describes how to request user login
+        authorization: {
+            // Defines what scopes to request when authenticating.
+            params: { scope: "openid profile auctionApp" },
+            // direct path to IdentityServer’s authorization endpoint
+            url: process.env.ID_URL + "/connect/authorize"
+        },
+        // endpoint where NextAuth exchanges the authorization code for tokens (Access Token, ID Token)
+        token: {
+            // ID_URL_INTERNAL — an internal container address (e.g., within Docker network) for backend communication
+            url: `${process.env.ID_URL_INTERNAL}/connect/token`,
+        },
+        // NextAuth fetch user claims (like name, email) from the identity provider
+        userinfo: {
+            url: `${process.env.ID_URL_INTERNAL}/connect/token`,
+        },
         // Tells NextAuth to expect an ID Token in the response (standard in OIDC)
         // That token will contain user identity info and claims (like sub, name, email, etc.).
         // Useful for SPAs and SSR apps since it lets NextAuth easily derive the logged-in user session.
@@ -35,11 +49,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   // These two callbacks are the key to mapping user data between IdentityServer → JWT → NextAuth session.
   callbacks: {
-    async authorized({auth}) {
-        // !!: convert any value to boolean
-        // auth is the session object. If the user is not logged in, auth will be null.
-        // If a valid session (auth) exists → true → authorized, if no session → false → unauthorized
-        return !!auth
+    // Controls where users are redirected after sign-in/sign-out
+    // If the URL begins with your site’s base (http://localhost:3000), allow it.
+    // Otherwise, send them back to the home page.
+    // url: the URL NextAuth is about to redirect the user to
+    // baseUrl: your site’s root (from AUTH_URL or NEXTAUTH_URL, e.g. http://localhost:3000)
+    // return value: where the user will actually be redirected after sign-in/sign-out
+    // This callback is triggered automatically by NextAuth during specific transitions in the login/logout process, like after ssuccessful sign-in
+    // When the user signs in via your provider (IdentityServer, Google, etc.),
+    // NextAuth receives the authorization code → exchanges it for tokens → builds a session → then runs redirect() to decide where to send the user next.
+    // Example flow:
+    // 1. User clicks signIn('id-server').
+    // 2. User logs in on IdentityServer.
+    // 3. IdentityServer redirects back to /api/auth/callback/id-server.
+    // 4. NextAuth finishes the flow, creates a session, and calls: redirect({ url: callbackUrl, baseUrl })
+    //     - If you called signIn('id-server', { callbackUrl: '/session' }), then url will be /session.
+    //     - The callback decides whether to allow it or override it.
+    async redirect({ url, baseUrl }) {
+        return url.startsWith(baseUrl) ? url : baseUrl;
+    },
+    // Runs in middleware when a protected route is matched
+    async authorized({auth, request}) {
+        const { pathname } = request.nextUrl
+
+        if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.startsWith("/api/auth")) {
+            return true;
+        }
+
+        if (pathname === '/session') {
+            // !!: convert any value to boolean
+            // auth is the session object. If the user is not logged in, auth will be null.
+            // If a valid session (auth) exists → true → authorized, if no session → false → unauthorized
+            return !!auth
+        }
     },
 
     // Runs whenever a JWT is created or updated
@@ -65,6 +107,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
         return session
     }
+  },
+  // custom pages
+  pages: {
+    signIn: '/signin',
   }
 })
 

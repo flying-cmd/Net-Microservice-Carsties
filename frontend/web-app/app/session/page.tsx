@@ -1,9 +1,15 @@
 import { auth } from "@/auth";
 import Heading from "../components/Heading";
 import AuthTest from "./AuthTest";
+import { redirect } from "next/navigation";
 
 export default async function Session() {
   const session = await auth();
+
+  if (!session) {
+    // signIn(); // redirects to sign-in
+    redirect("/signin");
+  }
 
   return (
     <div>
